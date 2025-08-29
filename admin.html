@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Panel</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <h2>Admin Login</h2>
+  <input id="username" placeholder="Username">
+  <input id="password" type="password" placeholder="Password">
+  <button onclick="login()">Login</button>
+
+  <div id="admin-section" style="display:none;">
+    <h2>Add Intent</h2>
+    <input id="tag" placeholder="Intent Tag"><br><br>
+    <textarea id="patterns" placeholder="Patterns (comma separated)"></textarea><br><br>
+    <textarea id="responses" placeholder="Responses (comma separated)"></textarea><br><br>
+    <button onclick="addIntent()">Add Intent</button>
+
+    <h2>Existing Intents</h2>
+    <div id="intents-list"></div>
+  </div>
+
+  <script>
+    const BASE_URL = "http://127.0.0.1:5000"; // always call Flask backend
+
+    // --- Login ---
+    async function login() {
+      const res = await fetch(`${BASE_URL}/login`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          username: document.getElementById("username").value,
+          password: document.getElementById("password").value
+        })
+      });
+      if (res.ok) {
+        alert("Login successful!");
+        document.getElementById("admin-section").style.display = "block";
+        loadIntents();
+      } else {
+        alert("Login failed!");
+      }
+    }
+
+    // --- Add Intent ---
+    async function addIntent() {
+      const tag = document.getElementById("tag").value;
+      const patterns = document.getElementById("patterns").value.split(",");
+      const responses = document.getElementById("responses").value.split(",");
+
+      const res = await fetch(`${BASE_URL}/add_intent`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ tag, patterns, responses })
+      });
+      const data = await res.json();
+      alert(data.status);
+      loadIntents();
+    }
+
+    // --- Load Intents ---
+    async function loadIntents() {
+      const res = await fetch(`${BASE_URL}/get_intents`);
+      if (!res.ok) return;
+      const data = await res.json();
+      document.getElementById("intents-list").innerHTML =
+        data.map(i => `
+          <div style="border:1px solid #ccc; padding:10px; margin:5px;">
+            <b>${i.tag}</b><br>
+            <b>Patterns:</b> ${i.patterns.join(", ")} <br>
+            <b>Responses:</b> ${i.responses.join(", ")} <br>
+            <button onclick="editIntent('${i.id}', '${i.tag}', '${i.patterns.join(",")}', '${i.responses.join(",")}')">✏️ Edit</button>
+            <button onclick="deleteIntent('${i.id}')">🗑️ Delete</button>
+          </div>
+        `).join("");
+    }
+
+    // --- Edit Intent ---
+    async function editIntent(id, tag, patterns, responses) {
+      const newTag = prompt("Edit Tag:", tag);
+      const newPatterns = prompt("Edit Patterns (comma separated):", patterns);
+      const newResponses = prompt("Edit Responses (comma separated):", responses);
+
+      const res = await fetch(`${BASE_URL}/update_intent`, {
+        method: "PUT",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          id,
+          tag: newTag,
+          patterns: newPatterns.split(","),
+          responses: newResponses.split(",")
+        })
+      });
+      const data = await res.json();
+      alert(data.status);
+      loadIntents();
+    }
+
+    // --- Delete Intent ---
+    async function deleteIntent(id) {
+      if (!confirm("Are you sure?")) return;
+      const res = await fetch(`${BASE_URL}/delete_intent/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      alert(data.status);
+      loadIntents();
+    }
+  </script>
+</body>
+</html>
